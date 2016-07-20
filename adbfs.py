@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 # coding=utf-8
 from fuse import Fuse, Stat, Direntry, StatVfs
 from os import mkdir
@@ -5,6 +6,11 @@ from os.path import exists
 from pyadb import ADB
 from errno import ENOENT
 import stat
+
+USE_LS = False
+FILES_CACHE = {}
+INFO_CACHE = {}
+
 
 
 def run():
@@ -36,9 +42,6 @@ def run():
     with open('/tmp/adbfs-cache/saved.info.dat', 'w') as f:
         for k, v in INFO_CACHE.items():
             f.write('%s;%s;%s\n' % (k, v[0], v[1]))
-
-FILES_CACHE = {}
-INFO_CACHE = {}
 
 
 def non_cached(name):
@@ -96,13 +99,18 @@ class ADBFS(Fuse):
         except Exception as e:
             print 'Command ', cmd, 'failed:', self.adb.get_error()
             raise e
+    
+    def _ls(self, path):
+        if USE_LS:
+            return self._sh('ls "%s"' % path).split()
+        return self._sh('ls -a "%s"' % path).splitlines()
 
     # ---- DIRECTORIES ----
     def readdir(self, path, offset):
         if self._sh('test -d "%s"&&echo true' % path).strip() == 'true':
             if path[:-1] != '/':
                 path += '/'
-            dd = self._sh('ls -a "%s"' % path).splitlines()
+            dd = self._ls(path)
             for i in dd:
                 yield Direntry(i)
 
